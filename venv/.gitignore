@@ -1,0 +1,16 @@
+venv/
+__pycache__/
+*.pyc
+
+
+
+
+*.tmp
+*.log
+*.cache
+.idea/
+.ipynb_checkpoints/
+
+.env
+.DS_Store
+.gitattributes
