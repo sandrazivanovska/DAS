@@ -20,6 +20,6 @@ class DateCheckFilter(Filter):
         if last_date:
             last_date = datetime.strptime(last_date, "%Y-%m-%d").date()
         else:
-            last_date = datetime.today().date() - timedelta(days=365 * 10)
+            last_date = datetime.today().date() - timedelta(days=3651)
 
         return (issuer, last_date)
