@@ -1,0 +1,80 @@
+body {
+    margin: 0;
+    font-family: 'Arial', sans-serif;
+    background: url('../images/back_image.png') no-repeat center center fixed;
+    background-size: cover; /* Сликата ќе го покрие целиот екран */
+    background-position: bottom center; /* Прилагодување за да не се кратат важните делови */
+    color: white;
+}
+
+.home-container {
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    height: 100vh; /* Го користи целиот вертикален простор */
+}
+
+.content {
+    display: flex;
+    justify-content: flex-start; /* Ова ги преместува копчињата на левата страна */
+    align-items: flex-start; /* Ускладување вертикално на врвот */
+    padding-left: 50px; /* Додава простор од левата страна */
+    margin-top: 50px; /* Намалете го растојанието од горниот дел */
+}
+
+.custom-container {
+    max-width: 400px;
+    padding-left: 80px; /* Место од левата страна */
+    padding-bottom: 160px;
+    text-align: left; /* Усогласување на текстот лево */
+    margin: 0; /* Без автоматско центрирање */
+}
+
+
+.explore-section {
+    text-align: left; /* Усогласување на текстот на лево */
+}
+
+.explore-section h2 {
+    font-size: 1.8rem;
+    margin-bottom: 20px;
+    text-align: left; /* Усогласување на заглавието на лево */
+}
+
+.options {
+    list-style: none;
+    padding: 0;
+}
+
+.options li {
+    margin: 10px 0;
+}
+
+.options a {
+    text-decoration: none;
+    font-size: 1.2rem;
+    color: white;
+    border: 1px solid white;
+    padding: 10px 20px;
+    border-radius: 20px;
+    transition: background-color 0.3s ease, color 0.3s ease;
+    display: inline-block;
+}
+
+.options a:hover {
+    background-color: white;
+    color: black;
+}
+.text-white{
+    text-align: center;
+}
+
+table {
+    margin-bottom: 30px; /* Простор под табелата */
+}
+
+canvas {
+    margin-top: 20px;
+    max-width: 100%;
+}
