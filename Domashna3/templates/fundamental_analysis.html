@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fundamental Analysis</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .back-button {
+            position: fixed;
+            bottom: 10px;
+            right: 20px;
+        }
+        .view-visualizations-btn {
+            position: fixed;
+            bottom: 50px;
+            right: 20px;
+        }
+    </style>
+</head>
+<body class="bg-light text-dark">
+    <div class="container mt-5">
+        <h1 class="text-center">Fundamental Analysis</h1>
+
+        <form method="POST" class="d-flex justify-content-center gap-3 mt-4">
+            <input type="text" name="stock" class="form-control w-25" placeholder="Enter stock symbol" required>
+            <button type="submit" class="btn btn-primary">Submit</button>
+        </form>
+
+        {% if data %}
+        <div class="mt-5">
+            <!-- Financial Data Table -->
+            <h3>Financial Data</h3>
+            <table class="table table-bordered">
+                <tr><th>Total Turnover</th><td>{{ data['financial']['Total Turnover'] }}</td></tr>
+                <tr><th>Average Price</th><td>{{ data['financial']['Average Price'] }}</td></tr>
+                <tr><th>Max Price</th><td>{{ data['financial']['Max Price'] }}</td></tr>
+                <tr><th>Min Price</th><td>{{ data['financial']['Min Price'] }}</td></tr>
+                <tr><th>Total Quantity</th><td>{{ data['financial']['Total Quantity'] }}</td></tr>
+            </table>
+
+            <!-- Sentiment Analysis Table -->
+            <h3>Sentiment Analysis</h3>
+            <table class="table table-bordered">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>News Title</th>
+                        <th>Source</th>
+                        <th>Sentiment</th>
+                        <th>Recommendation</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in data['sentiment'] %}
+                    <tr>
+                        <td>{{ row['Датум'] }}</td>
+                        <td>{{ row['News Title'] }}</td>
+                        <td>{{ row['Source'] }}</td>
+                        <td>{{ row['Sentiment'] }}</td>
+                        <td>{{ row['Recommendation'] }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- View Visualizations Button -->
+        <a href="/visualizations" class="btn btn-primary view-visualizations-btn">View Visualizations</a>
+        {% endif %}
+    </div>
+
+    <!-- Back Button -->
+    <a href="/" class="btn btn-secondary back-button">Back</a>
+</body>
+</html>
