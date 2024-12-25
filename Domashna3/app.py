@@ -4,10 +4,13 @@ import requests
 from bs4 import BeautifulSoup
 from flask import Flask, render_template, request
 import sqlite3
-from analysis.technical import perform_technical_analysis
+from analysis.technical_analysis import perform_technical_analysis
 import sys
 import os
 from datetime import datetime, timedelta
+from analysis.prediction import load_data, get_predictions
+
+
 locale.setlocale(locale.LC_ALL, 'mk_MK.UTF-8')
 
 
@@ -150,13 +153,37 @@ def top_traded_stocks():
 def about_us():
     return render_template('about_us.html')
 
-@app.route('/predictive-analysis')
+@app.route('/predictive-analysis', methods=['GET', 'POST'])
 def predictive_analysis():
-    return render_template('predictive_analysis.html')
+    predictions = None
+    stock_name = None
+    error_message = None
+
+    if request.method == 'POST':
+        stock_name = request.form.get('stock')
+
+        if not stock_name:
+            error_message = "Ве молиме внесете валиден издавач."
+        else:
+            data = load_data()
+            try:
+                predictions = get_predictions(stock_name)
+            except Exception as e:
+                error_message = f"Грешка при предвидување: {e}"
+
+    return render_template(
+        'predictive_analysis.html',
+        stock_name=stock_name,
+        predictions=predictions,
+        error_message=error_message
+    )
+
+
 
 @app.route('/visualizations')
 def visualizations():
     return render_template('visualizations.html')
+
 
 
 if __name__ == '__main__':
