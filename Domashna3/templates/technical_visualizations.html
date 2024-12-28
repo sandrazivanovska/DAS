@@ -10,7 +10,7 @@
         #stockPieChart {
             max-width: 500px;
             max-height: 500px;
-            margin: 0 auto; /* Центрирање на дијаграмот */
+            margin: 0 auto;
         }
     </style>
 </head>
@@ -18,11 +18,9 @@
     <div class="container my-5">
         <h1 class="text-center mb-4">Top 10 Traded Stocks</h1>
         <div class="row">
-            <!-- Pie Chart -->
             <div class="col-md-6 d-flex justify-content-center align-items-center">
                 <canvas id="stockPieChart"></canvas>
             </div>
-            <!-- Table -->
             <div class="col-md-6">
                 <table class="table table-bordered table-striped text-center">
                     <thead>
@@ -48,13 +46,11 @@
         </div>
     </div>
 
-    <!-- Back Button -->
     <div class="position-fixed bottom-0 end-0 m-4">
         <a href="/" class="btn btn-secondary">Back To Home</a>
     </div>
 
     <script>
-        // Prepare data for the pie chart
         const labels = [
             {% for row in data %}
             "{{ row['issuer'] }}",
@@ -66,7 +62,6 @@
             {% endfor %}
         ];
 
-        // Debugging: Print labels and data to the console
         console.log("Labels: ", labels);
         console.log("Data: ", turnovers);
 

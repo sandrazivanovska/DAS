@@ -26,16 +26,16 @@
         .fixed-buttons .btn {
             margin-bottom: 20px;
             width: 150px;
-            background-color: #6c757d; /* Gray color */
-            color: white; /* White text */
+            background-color: #6c757d;
+            color: white;
         }
         .fixed-buttons .btn:hover {
-            background-color: #5a6268; /* Darker gray on hover */
+            background-color: #5a6268;
         }
         .fixed-buttons .btn {
-            width: 150px; /* Единствена ширина за двете копчиња */
+            width: 150px;
             margin-bottom: 20px;
-            background-color: #6c757d; /* Сива боја */
+            background-color: #6c757d;
             color: white;
         }
         .btn btn-secondary{
@@ -133,21 +133,17 @@
             const urlParams = new URLSearchParams(window.location.search);
             const stockFromQuery = urlParams.get('stock');
 
-            // Avoid repeated submission by checking session storage
             const formSubmitted = sessionStorage.getItem('formSubmitted');
 
             if (stockFromQuery && !formSubmitted) {
                 const stockInput = document.getElementById('stockInput');
                 stockInput.value = stockFromQuery;
 
-                // Set a default period (e.g., 1 ден)
                 const periodSelect = document.getElementById('periodSelect');
                 periodSelect.value = "1 ден";
 
-                // Mark form as submitted in session storage
                 sessionStorage.setItem('formSubmitted', 'true');
 
-                // Auto-submit the form
                 document.getElementById('technicalAnalysisForm').submit();
             }
 
@@ -155,14 +151,13 @@
             const signalCounts = {{ data['signal_counts']|tojson }};
             const recommendation = "{{ data['final_recommendation'] }}";
 
-            // Calculate gauge value based on signal counts
-            let gaugeValue = 2; // Default to "Hold"
+            let gaugeValue = 2;
             if (signalCounts.BUY > signalCounts.SELL) {
-                gaugeValue = 3; // Buy
+                gaugeValue = 3;
             } else if (signalCounts.SELL > signalCounts.BUY) {
-                gaugeValue = 1; // Sell
+                gaugeValue = 1;
             } else if (signalCounts.BUY === signalCounts.SELL) {
-                gaugeValue = 2; // Hold
+                gaugeValue = 2;
             }
 
             const data = [
@@ -184,11 +179,11 @@
                         },
                         bar: { color: "black", thickness: 0.25 },
                         steps: [
-                            { range: [0, 1], color: "#ff9999" }, // Strong Sell
-                            { range: [1, 2], color: "#ffcc99" }, // Sell
-                            { range: [2, 3], color: "#ffffcc" }, // Hold
-                            { range: [3, 4], color: "#ccffcc" }, // Buy
-                            { range: [4, 5], color: "#99ff99" }, // Strong Buy
+                            { range: [0, 1], color: "#ff9999" },
+                            { range: [1, 2], color: "#ffcc99" },
+                            { range: [2, 3], color: "#ffffcc" },
+                            { range: [3, 4], color: "#ccffcc" },
+                            { range: [4, 5], color: "#99ff99" },
                         ],
                         threshold: {
                             line: { color: "black", width: 4 },

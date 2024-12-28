@@ -91,7 +91,6 @@
         </div>
         <h1 class="text-center mb-4">Predictive Analysis</h1>
 
-        <!-- Form Section -->
         <div class="card shadow-lg">
             <div class="card-body">
                 <form method="POST" action="/predictive-analysis" onsubmit="showLoading()">
@@ -116,7 +115,6 @@
             </div>
         </div>
 
-        <!-- Loading Overlay -->
         <div class="loading-overlay" id="loading-overlay">
             <div class="spinner">
                 <div class="spinner-border text-primary" role="status"></div>
@@ -124,14 +122,12 @@
             </div>
         </div>
 
-        <!-- Error Message -->
         {% if error_message %}
         <div class="alert alert-danger mt-4 text-center">
             {{ error_message }}
         </div>
         {% endif %}
 
-        <!-- Results Section -->
         {% if stock_name and predictions and period %}
         <div class="card shadow-lg mt-5">
             <div class="card-body text-center">
@@ -155,7 +151,6 @@
         </div>
         {% endif %}
 
-        <!-- Graph Section -->
         {% if graph_url %}
         <div class="mt-5 text-center">
             <h3>Prediction Visualization</h3>
@@ -163,7 +158,6 @@
         </div>
         {% endif %}
 
-        <!-- Back to Home Button -->
         <div class="text-center mt-4">
             <a href="/" class="btn btn-secondary" style="margin-bottom: 20px;">Back to Home</a>
         </div>
@@ -180,7 +174,7 @@
             const stock = urlParams.get('stock');
 
             if (stock) {
-                document.getElementById('stock').value = stock; // Populate the stock input field
+                document.getElementById('stock').value = stock;
             }
         });
     </script>

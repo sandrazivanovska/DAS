@@ -90,7 +90,6 @@ def analyze_stock(connection, stock_symbol, time_periods):
     data = generate_signals(calculate_indicators(data))
 
     def calculate_recommendation(period_data):
-        """Summarize signals and compute recommendations for a time period."""
         summary = summarize_period(period_data, data, data)
         signal_counts = {signal: sum(
             osc['signal'] == signal for osc in summary['oscillator_summary'].values()

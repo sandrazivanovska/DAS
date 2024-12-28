@@ -1,17 +1,13 @@
 import csv
 import locale
-
 import pandas as pd
 import requests
 from bs4 import BeautifulSoup
 from flask import Flask, render_template, request, session, redirect, url_for
 import sqlite3
-
 from Domashna3.analysis.historical_analysis import get_historical_data
-from analysis.technical_analysis import *
 import sys
 import os
-from datetime import datetime, timedelta
 from analysis.prediction import load_data, get_predictions
 import matplotlib.pyplot as plt
 import io
@@ -21,8 +17,6 @@ from analysis.technical_analysis import *
 
 
 locale.setlocale(locale.LC_ALL, 'mk_MK.UTF-8')
-
-
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 app = Flask(__name__)
@@ -55,26 +49,22 @@ def technical_analysis():
     selected_period = None
 
     if request.method == 'POST':
-        # Handle form submission
         stock_name = request.form.get('stock')
         selected_period = request.form.get('period')
 
     elif request.method == 'GET':
-        # Handle stock symbol passed via query parameter
         stock_name = request.args.get('stock')
-        selected_period = "1 ден"  # Default period if not provided
+        selected_period = "1 ден"
 
     if stock_name:
         conn = get_db_connection()
 
-        # Define periods in days
         periods = {
             '1 ден': 1,
             '1 недела': 7,
             '1 месец': 30
         }
 
-        # Perform technical analysis
         analysis_results = analyze_stock(conn, stock_name, periods)
         conn.close()
 
@@ -91,21 +81,17 @@ def technical_analysis():
 
 
 def prepare_visualization_data(connection, stock_symbol):
-    # Define the periods for analysis
     time_periods = {
         "1_day": 1,
         "1_week": 7,
         "1_month": 30
     }
 
-    # Analyze stock data for the given symbol
     analysis_results = analyze_stock(connection, stock_symbol, time_periods)
 
-    # Handle case where no data is available
     if "error" in analysis_results:
         return {"error": analysis_results["error"]}
 
-    # Prepare oscillator data for comparison
     oscillator_values = {
         period: {
             "RSI": analysis_results[period]["oscillator_summary"]["RSI"]["value"],
@@ -115,7 +101,6 @@ def prepare_visualization_data(connection, stock_symbol):
         for period in time_periods.keys()
     }
 
-    # Prepare trend data (using the entire historical dataset)
     end_date = datetime.now()
     start_date = end_date - timedelta(days=730)
     data = fetch_data(connection, stock_symbol, start_date, end_date)
@@ -137,27 +122,23 @@ def prepare_visualization_data(connection, stock_symbol):
 
 @app.route('/technical-visualizations', methods=['GET'])
 def technical_visualizations():
-    # Get stock symbol from the query parameters
     stock_symbol = request.args.get('stock', None)
     if not stock_symbol:
-        return "Stock symbol is required.", 400  # Error if no stock is provided
+        return "Stock symbol is required.", 400
 
     conn = get_db_connection()
 
-    # Generate visualization data for the selected stock
     visualization_data = prepare_visualization_data(conn, stock_symbol)
     conn.close()
 
-    # Handle case where no data is available
     if "error" in visualization_data:
         return render_template('error.html', error_message=visualization_data["error"])
 
     return render_template(
         'technical_visualizations.html',
         data=visualization_data,
-        stock_symbol=stock_symbol  # Pass the stock symbol to the template
+        stock_symbol=stock_symbol
     )
-
 
 
 CSV_FILE_PATH = "sentiment_analysis_results.csv"
@@ -221,19 +202,16 @@ def fundamental_analysis():
     error_message = None
     chart_url = None
 
-    # Handle both GET and POST requests
-    issuer_code = request.args.get('stock') or request.form.get('issuer_code')  # Adjust to use `?stock=`
+    issuer_code = request.args.get('stock') or request.form.get('issuer_code')
 
-    if issuer_code:  # Automatically process analysis when issuer_code is provided
-        session['selected_issuer_code'] = issuer_code  # Store in session
+    if issuer_code:
+        session['selected_issuer_code'] = issuer_code
 
-        # Read documents from CSV
         documents = read_documents_from_csv(CSV_FILE_PATH, issuer_code)
 
         if documents.empty:
             error_message = f"No documents found for issuer {issuer_code}."
         else:
-            # Perform sentiment analysis
             positive_count = (documents['Sentiment'] == "POSITIVE").sum()
             negative_count = (documents['Sentiment'] == "NEGATIVE").sum()
 
@@ -244,10 +222,8 @@ def fundamental_analysis():
             else:
                 recommendation = "HOLD"
 
-            # Generate chart
             chart_url = generate_bar_chart(positive_count, negative_count)
 
-            # Prepare result
             result = {
                 "issuer_code": issuer_code,
                 "positive_count": positive_count,
@@ -286,7 +262,7 @@ def generate_filtered_line_chart(data, issuer_code, start_date, end_date):
     plt.ylabel("Number of Articles", fontsize=12)
     plt.legend(title="Sentiment")
     plt.grid(axis='y', linestyle='--', alpha=0.7)
-    plt.gca().yaxis.set_major_locator(mticker.MaxNLocator(integer=True))  # Display integer ticks on Y-axis
+    plt.gca().yaxis.set_major_locator(mticker.MaxNLocator(integer=True))
     plt.tight_layout()
 
     img = io.BytesIO()
@@ -299,7 +275,7 @@ def generate_filtered_line_chart(data, issuer_code, start_date, end_date):
 
 @app.route('/visualizations_fundamental', methods=['GET', 'POST'])
 def visualizations_fundamental():
-    selected_issuer_code = session.get('selected_issuer_code')  # Земаме го претходно избраниот код
+    selected_issuer_code = session.get('selected_issuer_code')
     data = read_documents_from_csv(CSV_FILE_PATH,  selected_issuer_code )
     chart_url = None
     error_message = None
@@ -401,7 +377,7 @@ def scrape_najtrguvani():
 @app.route('/top-traded-stocks')
 def top_traded_stocks():
     try:
-        # Повик до scrap функцијата
+
         najtrguvani_data = scrape_najtrguvani()
         return render_template('top_traded_stocks.html', data=najtrguvani_data)
     except Exception as e:
@@ -423,9 +399,9 @@ def get_current_price_from_db(stock_name):
     result = conn.execute(query, (stock_name,)).fetchone()
     conn.close()
     if result:
-        raw_price = result[0]  # Преземаме ја вредноста како string
+        raw_price = result[0]
         try:
-            # Нормализираме го бројот: отстрануваме илјадни разделувачи и користиме точка за децимали
+
             normalized_price = float(raw_price.replace('.', '').replace(',', '.'))
             return normalized_price
         except ValueError:
@@ -436,7 +412,7 @@ def get_current_price_from_db(stock_name):
 @app.route('/predictive-analysis', methods=['GET', 'POST'])
 def predictive_analysis():
     predictions = None
-    stock_name = request.args.get('stock')  # Capture issuer_code from query parameters
+    stock_name = request.args.get('stock')
     error_message = None
     recommendations = {}
     graph_url = None
@@ -445,8 +421,8 @@ def predictive_analysis():
     future_date = None
 
     if request.method == 'POST':
-        stock_name = request.form.get('stock')  # Get stock_name from form submission
-        period = request.form.get('period')    # Capture the selected period
+        stock_name = request.form.get('stock')
+        period = request.form.get('period')
 
         if not stock_name:
             error_message = "Please enter a valid issuer."

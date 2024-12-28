@@ -10,11 +10,11 @@
         #stockPieChart {
             max-width: 1000px;
             max-height: 1000px;
-            margin: 0 auto; /* Центрирање на дијаграмот */
+            margin: 0 auto;
         }
         canvas {
-            width: 500px !important; /* Поставување фиксна ширина */
-            height: 500px !important; /* Поставување фиксна висина */
+            width: 500px !important;
+            height: 500px !important;
             display: block;
             margin: 0 auto;
         }
@@ -54,13 +54,11 @@
         </div>
     </div>
 
-    <!-- Back Button -->
     <div class="position-fixed bottom-0 end-0 m-4">
         <a href="/" class="btn btn-secondary">Back To Home</a>
     </div>
 
     <script>
-        // Prepare data for the pie chart
         const labels = [
             {% for row in data %}
             "{{ row['issuer'] }}",
