@@ -2,87 +2,115 @@ import pandas as pd
 import talib
 from datetime import datetime, timedelta
 
-def perform_technical_analysis(stock_name, conn):
-    # Опсег на датуми
-    end_date = datetime.now()
-    start_date = end_date - timedelta(days=365)
 
-    # Читање податоци од базата
+def fetch_data(connection, stock_symbol, start_date, end_date):
     query = '''SELECT Датум, "Цена на последна трансакција", "Мак.", "Мин.", Количина
                FROM stock_data
                WHERE Издавач = ? AND Датум BETWEEN ? AND ?
                ORDER BY Датум ASC'''
-    stock_data = pd.read_sql_query(query, conn, params=(stock_name, start_date.strftime('%Y-%m-%d'), end_date.strftime('%Y-%m-%d')))
+    df = pd.read_sql_query(query, connection, params=(
+        stock_symbol, start_date.strftime('%Y-%m-%d'), end_date.strftime('%Y-%m-%d')))
 
-    if stock_data.empty:
-        return None
+    df['Датум'] = pd.to_datetime(df['Датум'])
+    df.set_index('Датум', inplace=True)
 
-    # Форматирање на податоците
-    stock_data['Датум'] = pd.to_datetime(stock_data['Датум'])
-    stock_data.set_index('Датум', inplace=True)
-    stock_data['Цена на последна трансакција'] = stock_data['Цена на последна трансакција'].apply(
-        lambda x: float(x.replace('.', '').replace(',', '.')))
-    stock_data['Мак.'] = stock_data['Мак.'].apply(lambda x: float(x.replace('.', '').replace(',', '.')))
-    stock_data['Мин.'] = stock_data['Мин.'].apply(lambda x: float(x.replace('.', '').replace(',', '.')))
+    for col in ['Цена на последна трансакција', 'Мак.', 'Мин.']:
+        df[col] = df[col].str.replace('.', '', regex=False).str.replace(',', '.', regex=False).astype(float)
 
-    # Проверка за доволно податоци
-    if len(stock_data) < 50:
-        return None
+    return df.sort_index()
 
-    # Пресметка на технички индикатори
-    prices = stock_data['Цена на последна трансакција']
-    high = stock_data['Мак.']
-    low = stock_data['Мин.']
 
-    stock_data['RSI'] = talib.RSI(prices, timeperiod=14)
-    stock_data['MACD'], _, stock_data['MACD_hist'] = talib.MACD(prices, fastperiod=12, slowperiod=26, signalperiod=9)
-    stock_data['%K'], _ = talib.STOCH(high, low, prices, fastk_period=14, slowk_period=3, slowd_period=3)
-    stock_data['Williams_%R'] = talib.WILLR(high, low, prices, timeperiod=14)
-    stock_data['CCI'] = talib.CCI(high, low, prices, timeperiod=14)
-    stock_data['SMA_20'] = talib.SMA(prices, timeperiod=20)
-    stock_data['EMA_20'] = talib.EMA(prices, timeperiod=20)
-    stock_data['SMA_50'] = talib.SMA(prices, timeperiod=50)
-    stock_data['EMA_50'] = talib.EMA(prices, timeperiod=50)
-    stock_data['BB_middle'] = talib.BBANDS(prices, timeperiod=20)[1]
+def calculate_indicators(df):
+    high, low, close = df['Мак.'], df['Мин.'], df['Цена на последна трансакција']
 
-    # Функција за генерирање на сигнал
-    def generate_signal(indicator, value):
-        if indicator == 'RSI':
-            return 'Buy' if value < 30 else 'Sell' if value > 70 else 'Hold'
-        elif indicator == 'MACD':
-            return 'Buy' if value > 0 else 'Sell'
-        elif indicator == 'Stochastic Oscillator':
-            return 'Buy' if value < 20 else 'Sell' if value > 80 else 'Hold'
-        elif indicator == 'Williams_%R':
-            return 'Buy' if value < -80 else 'Sell' if value > -20 else 'Hold'
-        elif indicator == 'CCI':
-            return 'Buy' if value < -100 else 'Sell' if value > 100 else 'Hold'
-        else:
-            return 'Hold'
-
-    # Подготовка на резултати
-    latest_data = stock_data.tail(1).iloc[0]
-    oscillators = {
-        "RSI": (latest_data['RSI'], generate_signal('RSI', latest_data['RSI'])),
-        "MACD": (latest_data['MACD'], generate_signal('MACD', latest_data['MACD'])),
-        "Stochastic Oscillator": (latest_data['%K'], generate_signal('Stochastic Oscillator', latest_data['%K'])),
-        "Williams %R": (latest_data['Williams_%R'], generate_signal('Williams_%R', latest_data['Williams_%R'])),
-        "CCI": (latest_data['CCI'], generate_signal('CCI', latest_data['CCI']))
-    }
-    moving_averages = {
-        "SMA 20": (latest_data['SMA_20'], "Buy" if latest_data['SMA_20'] > latest_data['Цена на последна трансакција'] else "Sell"),
-        "EMA 20": (latest_data['EMA_20'], "Buy" if latest_data['EMA_20'] > latest_data['Цена на последна трансакција'] else "Sell"),
-        "SMA 50": (latest_data['SMA_50'], "Buy" if latest_data['SMA_50'] > latest_data['Цена на последна трансакција'] else "Sell"),
-        "EMA 50": (latest_data['EMA_50'], "Buy" if latest_data['EMA_50'] > latest_data['Цена на последна трансакција'] else "Sell"),
-        "Bollinger Bands (Middle)": (latest_data['BB_middle'], "Hold")
+    indicators = {
+        'RSI': talib.RSI(close, timeperiod=14),
+        'STOCH_K': talib.STOCH(high, low, close, fastk_period=14, slowk_period=3, slowd_period=3)[0],
+        'MACD': talib.MACD(close, fastperiod=12, slowperiod=26, signalperiod=9)[0],
+        'CCI': talib.CCI(high, low, close, timeperiod=14),
+        'WILLR': talib.WILLR(high, low, close, timeperiod=14),
+        'SMA_20': talib.SMA(close, timeperiod=20),
+        'EMA_20': talib.EMA(close, timeperiod=20),
+        'WMA_50': talib.WMA(close, timeperiod=50),
+        'TRIMA_50': talib.TRIMA(close, timeperiod=50),
+        'KAMA_30': talib.KAMA(close, timeperiod=30)
     }
 
-    # Генерирање на финален препорака
-    all_recommendations = [rec for _, rec in oscillators.values()] + [rec for _, rec in moving_averages.values()]
-    final_recommendation = max(set(all_recommendations), key=all_recommendations.count)
+    for key, values in indicators.items():
+        df[key] = values
 
-    return {
-        "oscillators": oscillators,
-        "moving_averages": moving_averages,
-        "final_recommendation": final_recommendation
+    return df
+
+
+def generate_signals(df):
+    oscillators = ['RSI', 'CCI', 'WILLR', 'STOCH_K', 'MACD']
+    for osc in oscillators:
+        df[f'{osc}_SIGNAL'] = df[osc].apply(
+            lambda value: 'SELL' if value > 70 else 'BUY' if value < 30 else 'HOLD'
+        )
+
+    moving_averages = ['SMA_20', 'EMA_20', 'WMA_50', 'TRIMA_50', 'KAMA_30']
+    for ma in moving_averages:
+        df[f'{ma}_SIGNAL'] = df.apply(
+            lambda row: 'BUY' if row['Цена на последна трансакција'] > row[ma]
+            else 'SELL' if row['Цена на последна трансакција'] < row[ma]
+            else 'HOLD',
+            axis=1
+        )
+
+    return df
+
+
+def summarize_period(df, indicators, signals):
+    summary = {
+        "oscillator_summary": {
+            osc: {
+                "value": round(df[osc].mean(), 2),
+                "signal": df[f'{osc}_SIGNAL'].mode()[0]
+            } for osc in ['RSI', 'CCI', 'WILLR', 'STOCH_K', 'MACD']
+        },
+        "moving_average_summary": {
+            ma: {
+                "value": round(df[ma].mean(), 2),
+                "signal": df[f'{ma}_SIGNAL'].mode()[0]
+            } for ma in ['SMA_20', 'EMA_20', 'WMA_50', 'TRIMA_50', 'KAMA_30']
+        }
     }
+    return summary
+
+
+def analyze_stock(connection, stock_symbol, time_periods):
+    end_date = datetime.now()
+    start_date = end_date - timedelta(days=730)
+
+    data = fetch_data(connection, stock_symbol, start_date, end_date)
+    if data.empty:
+        return {"error": "No data available for the specified stock and date range."}
+
+    data = generate_signals(calculate_indicators(data))
+
+    def calculate_recommendation(period_data):
+        """Summarize signals and compute recommendations for a time period."""
+        summary = summarize_period(period_data, data, data)
+        signal_counts = {signal: sum(
+            osc['signal'] == signal for osc in summary['oscillator_summary'].values()
+        ) + sum(
+            ma['signal'] == signal for ma in summary['moving_average_summary'].values()
+        ) for signal in ['BUY', 'SELL', 'HOLD']}
+        summary['signal_counts'] = signal_counts
+        summary['final_recommendation'] = (
+            max(signal_counts, key=signal_counts.get)
+            if signal_counts['BUY'] != signal_counts['SELL'] else 'HOLD'
+        )
+        return summary
+
+    results = {
+        period_name: (
+            calculate_recommendation(data.tail(days))
+            if not data.tail(days).empty else
+            {"error": f"No data available for the last {days} days."}
+        )
+        for period_name, days in time_periods.items()
+    }
+
+    return results

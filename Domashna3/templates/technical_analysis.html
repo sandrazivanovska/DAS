@@ -18,25 +18,50 @@
         h1, h3 {
             color: #333;
         }
+        .fixed-buttons {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+        }
+        .fixed-buttons .btn {
+            margin-bottom: 20px;
+            width: 150px;
+            background-color: #6c757d; /* Gray color */
+            color: white; /* White text */
+        }
+        .fixed-buttons .btn:hover {
+            background-color: #5a6268; /* Darker gray on hover */
+        }
+        .fixed-buttons .btn {
+            width: 150px; /* Единствена ширина за двете копчиња */
+            margin-bottom: 20px;
+            background-color: #6c757d; /* Сива боја */
+            color: white;
+        }
+        .btn btn-secondary{
+            margin-bottom: 20px;
+        }
+        .buttons{
+            margin-bottom: 20px;
+        }
     </style>
 </head>
 <body>
     <div class="container">
-
         <h1 class="text-center mt-4">
-    Technical Analysis{% if stock_name %} for {{ stock_name }}{% endif %}
-</h1>
+            Technical Analysis{% if stock_name %} for {{ stock_name }}{% endif %}
+        </h1>
 
-        <form method="POST" class="mb-5">
+        <form method="POST" id="technicalAnalysisForm" class="mb-5">
             <div class="row justify-content-center">
                 <div class="col-auto">
-                    <input type="text" name="stock" class="form-control" placeholder="Enter stock symbol" value="{{ stock_name or '' }}" required>
+                    <input type="text" name="stock" id="stockInput" class="form-control" placeholder="Enter stock symbol" value="{{ stock_name or '' }}" required>
                 </div>
                 <div class="col-auto">
-                    <select name="period" class="form-select">
-                        <option value="1_day" {% if period == '1_day' %}selected{% endif %}>1 Day</option>
-                        <option value="1_week" {% if period == '1_week' %}selected{% endif %}>1 Week</option>
-                        <option value="1_month" {% if period == '1_month' %}selected{% endif %}>1 Month</option>
+                    <select name="period" id="periodSelect" class="form-select">
+                        <option value="1 ден" {% if period == '1 ден' %}selected{% endif %}>1 Day</option>
+                        <option value="1 недела" {% if period == '1 недела' %}selected{% endif %}>1 Week</option>
+                        <option value="1 месец" {% if period == '1 месец' %}selected{% endif %}>1 Month</option>
                     </select>
                 </div>
                 <div class="col-auto">
@@ -48,7 +73,7 @@
         {% if data %}
         <div class="row">
             <div class="col-md-6">
-                <h3>Oscillators ({{ period }})</h3>
+                <h3>Oscillators</h3>
                 <table class="table table-bordered">
                     <thead>
                         <tr>
@@ -58,18 +83,18 @@
                         </tr>
                     </thead>
                     <tbody>
-                        {% for indicator, (value, rec) in data['oscillators'].items() %}
+                        {% for indicator, summary in data['oscillator_summary'].items() %}
                         <tr>
                             <td>{{ indicator }}</td>
-                            <td>{{ value }}</td>
-                            <td>{{ rec }}</td>
+                            <td>{{ summary['value'] }}</td>
+                            <td>{{ summary['signal'] }}</td>
                         </tr>
                         {% endfor %}
                     </tbody>
                 </table>
             </div>
             <div class="col-md-6">
-                <h3>Moving Averages ({{ period }})</h3>
+                <h3>Moving Averages</h3>
                 <table class="table table-bordered">
                     <thead>
                         <tr>
@@ -79,11 +104,11 @@
                         </tr>
                     </thead>
                     <tbody>
-                        {% for indicator, (value, rec) in data['moving_averages'].items() %}
+                        {% for indicator, summary in data['moving_average_summary'].items() %}
                         <tr>
                             <td>{{ indicator }}</td>
-                            <td>{{ value }}</td>
-                            <td>{{ rec }}</td>
+                            <td>{{ summary['value'] }}</td>
+                            <td>{{ summary['signal'] }}</td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -96,67 +121,93 @@
         {% endif %}
     </div>
 
-  <script>
-    document.addEventListener('DOMContentLoaded', function () {
-        {% if data and data['final_recommendation'] %}
-        const recommendation = "{{ data['final_recommendation'] }}";
-
-        let gaugeValue = 2; // Default to "Neutral"
-        if (recommendation === "Strong sell") gaugeValue = 0;
-        else if (recommendation === "Sell") gaugeValue = 1;
-        else if (recommendation === "Hold") gaugeValue = 2;
-        else if (recommendation === "Buy") gaugeValue = 3;
-        else if (recommendation === "Strong buy") gaugeValue = 4;
-
-        const data = [
-            {
-                type: "indicator",
-                mode: "gauge",
-                value: gaugeValue,
-                title: {
-                    text: "Overall Recommendation<br><b>" + recommendation + "</b>",
-                    font: { size: 22 },
-                    align: "center",
-                },
-                gauge: {
-                    axis: {
-                        range: [0, 4],
-                        tickvals: [0, 1, 2, 3, 4],
-                        ticktext: ["Strong Sell", "Sell", "Hold", "Buy", "Strong Buy"],
-                        tickfont: { size: 14 },
-                    },
-                    bar: { color: "black", thickness: 0.25 },
-                    steps: [
-                        { range: [0, 1], color: "#ff9999" }, // Soft red for "Strong Sell"
-                        { range: [1, 2], color: "#ffcc99" }, // Soft orange for "Sell"
-                        { range: [2, 3], color: "#ffffcc" }, // Soft yellow for "Hold"
-                        { range: [3, 4], color: "#ccffcc" }, // Soft green for "Buy"
-                        { range: [4, 5], color: "#99ff99" }, // Soft green for "Strong Buy"
-                    ],
-                    threshold: {
-                        line: { color: "black", width: 4 },
-                        thickness: 0.75,
-                        value: gaugeValue,
-                    },
-                },
-            },
-        ];
-
-        const layout = {
-            width: 600,
-            height: 400,
-            margin: { t: 80, r: 100, l: 100, b: 50 }, // Increased left and right margins for text
-        };
-
-        Plotly.newPlot("recommendation-gauge", data, layout);
+    <div class="fixed-buttons">
+        {% if data %}
+        <a href="/technical-visualizations?stock={{ stock_name }}" class="btn btn-secondary">Visualizations</a>
         {% endif %}
-    });
-</script>
+        <a href="/" class="btn btn-secondary">Back to Home</a>
+    </div>
 
-<a href="/home" class="btn btn-secondary mt-4" style="position: fixed; bottom: 20px; right: 20px;">Back to Home</a>
-</div>
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const urlParams = new URLSearchParams(window.location.search);
+            const stockFromQuery = urlParams.get('stock');
 
+            // Avoid repeated submission by checking session storage
+            const formSubmitted = sessionStorage.getItem('formSubmitted');
 
+            if (stockFromQuery && !formSubmitted) {
+                const stockInput = document.getElementById('stockInput');
+                stockInput.value = stockFromQuery;
 
+                // Set a default period (e.g., 1 ден)
+                const periodSelect = document.getElementById('periodSelect');
+                periodSelect.value = "1 ден";
+
+                // Mark form as submitted in session storage
+                sessionStorage.setItem('formSubmitted', 'true');
+
+                // Auto-submit the form
+                document.getElementById('technicalAnalysisForm').submit();
+            }
+
+            {% if data and data['signal_counts'] and data['final_recommendation'] %}
+            const signalCounts = {{ data['signal_counts']|tojson }};
+            const recommendation = "{{ data['final_recommendation'] }}";
+
+            // Calculate gauge value based on signal counts
+            let gaugeValue = 2; // Default to "Hold"
+            if (signalCounts.BUY > signalCounts.SELL) {
+                gaugeValue = 3; // Buy
+            } else if (signalCounts.SELL > signalCounts.BUY) {
+                gaugeValue = 1; // Sell
+            } else if (signalCounts.BUY === signalCounts.SELL) {
+                gaugeValue = 2; // Hold
+            }
+
+            const data = [
+                {
+                    type: "indicator",
+                    mode: "gauge",
+                    value: gaugeValue,
+                    title: {
+                        text: "Overall Recommendation<br><b>" + recommendation + "</b>",
+                        font: { size: 22 },
+                        align: "center",
+                    },
+                    gauge: {
+                        axis: {
+                            range: [0, 4],
+                            tickvals: [0, 1, 2, 3, 4],
+                            ticktext: ["Strong Sell", "Sell", "Hold", "Buy", "Strong Buy"],
+                            tickfont: { size: 14 },
+                        },
+                        bar: { color: "black", thickness: 0.25 },
+                        steps: [
+                            { range: [0, 1], color: "#ff9999" }, // Strong Sell
+                            { range: [1, 2], color: "#ffcc99" }, // Sell
+                            { range: [2, 3], color: "#ffffcc" }, // Hold
+                            { range: [3, 4], color: "#ccffcc" }, // Buy
+                            { range: [4, 5], color: "#99ff99" }, // Strong Buy
+                        ],
+                        threshold: {
+                            line: { color: "black", width: 4 },
+                            thickness: 0.75,
+                            value: gaugeValue,
+                        },
+                    },
+                },
+            ];
+
+            const layout = {
+                width: 600,
+                height: 400,
+                margin: { t: 80, r: 100, l: 100, b: 50 },
+            };
+
+            Plotly.newPlot("recommendation-gauge", data, layout);
+            {% endif %}
+        });
+    </script>
 </body>
 </html>

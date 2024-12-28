@@ -176,19 +176,19 @@ def get_predictions(issuer_name):
         issuer_name=issuer_name,
         look_back=60,
         days_ahead=1,
-        model_path=get_model_path('model_1_day.h5')
+        model_path=get_model_path('../lstm_models/model_1_day.h5')
     )
     prediction_1_week = predict_for_future(
         issuer_name=issuer_name,
         look_back=60,
         days_ahead=7,
-        model_path=get_model_path('model_1_week.h5')
+        model_path=get_model_path('../lstm_models/model_1_week.h5')
     )
     prediction_1_month = predict_for_future(
         issuer_name=issuer_name,
         look_back=60,
         days_ahead=30,
-        model_path=get_model_path('model_1_month.h5')
+        model_path=get_model_path('../lstm_models/model_1_month.h5')
     )
 
     # Проверка дали се враќаат валидни резултати
