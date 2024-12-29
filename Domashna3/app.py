@@ -20,7 +20,7 @@ locale.setlocale(locale.LC_ALL, 'mk_MK.UTF-8')
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 app = Flask(__name__)
-app.secret_key = "secret_key"  # За користење на session
+app.secret_key = "secret_key"
 
 def get_db_connection():
     base_dir = os.path.dirname(os.path.abspath(__file__))
@@ -147,19 +147,20 @@ def read_documents_from_csv(file_path, issuer_code):
 
     try:
         data = pd.read_csv(file_path, encoding='latin1')
-        data['Date'] = pd.to_datetime(data['Date'], errors='coerce')  # Конвертирање на датумите
+        data['Date'] = pd.to_datetime(data['Date'], errors='coerce')  # Convert dates
         filtered_data = data[data['Company Code'] == issuer_code]
         return filtered_data
     except Exception as e:
         print(f"Error reading CSV: {e}")
         return pd.DataFrame()
 
-def generate_bar_chart(positive_count, negative_count):
-    labels = ['Positive', 'Negative']
-    values = [positive_count, negative_count]
+def generate_bar_chart(positive_count, negative_count, neutral_count):
+    # Rearrange the order so Neutral is in the middle
+    labels = ['Positive', 'Neutral', 'Negative']
+    values = [positive_count, neutral_count, negative_count]
 
     plt.figure(figsize=(8, 6))
-    plt.bar(labels, values, color=['#5D6D7E', '#2874A6'])  # Неутрални деловни бои
+    plt.bar(labels, values, color=['#5D6D7E', '#A9A9A9', '#2874A6'])  # Neutral is gray
     plt.title("Sentiment Analysis Results")
     plt.ylabel("Number of Articles")
     plt.xlabel("Sentiment")
@@ -212,22 +213,27 @@ def fundamental_analysis():
         if documents.empty:
             error_message = f"No documents found for issuer {issuer_code}."
         else:
-            positive_count = (documents['Sentiment'] == "POSITIVE").sum()
-            negative_count = (documents['Sentiment'] == "NEGATIVE").sum()
+            positive_count = (documents['Sentiment'] == "Positive").sum()
+            negative_count = (documents['Sentiment'] == "Negative").sum()
+            neutral_count = (documents['Sentiment'] == "Neutral").sum()
 
-            if positive_count > negative_count:
+            # Determine Recommendation Based on Counts
+            if neutral_count >= positive_count and neutral_count >= negative_count:
+                recommendation = "HOLD"
+            elif positive_count >= neutral_count and positive_count >= negative_count:
                 recommendation = "BUY"
-            elif negative_count > positive_count:
+            elif negative_count >= neutral_count and negative_count >= positive_count:
                 recommendation = "SELL"
             else:
-                recommendation = "HOLD"
+                recommendation = "HOLD"  # Default recommendation if counts are equal
 
-            chart_url = generate_bar_chart(positive_count, negative_count)
+            chart_url = generate_bar_chart(positive_count, negative_count, neutral_count)
 
             result = {
                 "issuer_code": issuer_code,
                 "positive_count": positive_count,
                 "negative_count": negative_count,
+                "neutral_count": neutral_count,
                 "recommendation": recommendation,
             }
 
@@ -272,7 +278,6 @@ def generate_filtered_line_chart(data, issuer_code, start_date, end_date):
     plt.close()
     return chart_url
 
-
 @app.route('/visualizations_fundamental', methods=['GET', 'POST'])
 def visualizations_fundamental():
     selected_issuer_code = session.get('selected_issuer_code')
@@ -297,6 +302,7 @@ def visualizations_fundamental():
         issuer_code=selected_issuer_code,
         error_message=error_message
     )
+
 
 
 @app.route('/historical-informations', methods=['GET', 'POST'])
@@ -488,11 +494,9 @@ def predictive_analysis():
         graph_url=graph_url
     )
 
-
 @app.route('/visualizations')
 def visualizations():
     return render_template('visualizations.html')
-
 
 
 if __name__ == '__main__':
