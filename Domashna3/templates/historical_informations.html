@@ -6,13 +6,44 @@
     <title>Historical Informations</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        .row-container {
+            display: flex;
+            align-items: flex-start;
+        }
+        .table-container {
+            flex: 2;
+            margin-right: 2rem;
+        }
+        .chart-container {
+            flex: 1;
+        }
+        .view-visualizations-btn {
+            text-align: center;
+            margin-top: 20px;
+            margin-bottom: 30px; /* Added margin-bottom for spacing */
+        }
+        .analysis-section {
+            text-align: center;
+            margin-top: 20px;
+        }
+        .analysis-section h5 {
+            margin-bottom: 15px;
+        }
+        .analysis-buttons .btn {
+            display: block;
+            width: 100%;
+            max-width: 300px;
+            margin: 10px auto;
+        }
+    </style>
 </head>
 <body class="bg-light text-dark">
     <div class="container my-5">
         <div class="d-flex justify-content-between align-items-center">
             <h1 class="text-center">Historical Informations</h1>
             <!-- Back button -->
-            <a href="/" class="btn btn-secondary">Back</a>
+            <a href="/" class="btn btn-secondary">Back To Home</a>
         </div>
 
         <!-- Search Form -->
@@ -33,8 +64,8 @@
 
         <!-- Data Table and Chart -->
         {% if data %}
-        <div class="row">
-            <div class="col-md-6">
+        <div class="row-container">
+            <div class="table-container">
                 <table class="table table-bordered table-striped text-center">
                     <thead>
                         <tr>
@@ -66,13 +97,140 @@
                     </tbody>
                 </table>
             </div>
-            <div class="col-md-6">
+            <div class="chart-container">
                 <canvas id="historicalChart"></canvas>
+                <div class="view-visualizations-btn">
+                    <button type="button" class="btn btn-dark mt-3" data-bs-toggle="modal" data-bs-target="#visualizationModal">View Fullscreen</button>
+                </div>
+                <div class="analysis-section">
+                    <h5>Choose Analysis</h5>
+                    <div class="analysis-buttons">
+                        <a href="/fundamental-analysis?stock={{ stock_name }}" class="btn btn-dark">Fundamental Analysis</a>
+                        <a href="/technical-analysis?stock={{ stock_name }}" class="btn btn-dark">Technical Analysis</a>
+                        <a href="/predictive-analysis?stock={{ stock_name }}" class="btn btn-dark">Predictive Analysis</a>
+                    </div>
+                </div>
             </div>
         </div>
         {% endif %}
     </div>
 
+    <!-- Modal -->
+    <div class="modal fade" id="visualizationModal" tabindex="-1" aria-labelledby="visualizationModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-fullscreen">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="visualizationModalLabel">Full-Screen Visualization</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <canvas id="fullscreenChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
 
+   <script>
+    {% if chart_data %}
+    const chartData = {{ chart_data|tojson }};
+
+    // Initialize main chart
+    const ctx = document.getElementById('historicalChart').getContext('2d');
+    const historicalChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: chartData.dates,
+            datasets: [
+                {
+                    label: 'Last Price',
+                    data: chartData.last_prices,
+                    borderColor: 'blue',
+                    borderWidth: 2,
+                    fill: false,
+                },
+                {
+                    label: 'Max Price',
+                    data: chartData.max_prices,
+                    borderColor: 'green',
+                    borderWidth: 2,
+                    fill: false,
+                },
+                {
+                    label: 'Min Price',
+                    data: chartData.min_prices,
+                    borderColor: 'red',
+                    borderWidth: 2,
+                    fill: false,
+                },
+            ],
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: {
+                    position: 'top',
+                },
+            },
+            scales: {
+                x: {
+                    title: {
+                        display: true,
+                        text: 'Date',
+                    },
+                },
+                y: {
+                    title: {
+                        display: true,
+                        text: 'Price',
+                    },
+                },
+            },
+        },
+    });
+
+    // Initialize full-screen chart
+    let fullscreenChart;
+    document.getElementById('visualizationModal').addEventListener('shown.bs.modal', function () {
+        const fullscreenCtx = document.getElementById('fullscreenChart').getContext('2d');
+
+        // Destroy the chart if it exists (prevents duplicate rendering)
+        if (fullscreenChart) {
+            fullscreenChart.destroy();
+        }
+
+        // Reinitialize the full-screen chart
+        fullscreenChart = new Chart(fullscreenCtx, {
+            type: 'line',
+            data: historicalChart.data, // Use data from the main chart
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: {
+                        position: 'top',
+                    },
+                },
+                scales: {
+                    x: {
+                        title: {
+                            display: true,
+                            text: 'Date',
+                        },
+                    },
+                    y: {
+                        title: {
+                            display: true,
+                            text: 'Price',
+                        },
+                    },
+                },
+            },
+        });
+    });
+    {% endif %}
+</script>
+
+
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
