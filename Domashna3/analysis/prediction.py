@@ -2,8 +2,10 @@ import os
 import sqlite3
 import pandas as pd
 import numpy as np
+import matplotlib.pyplot as plt
 from keras.layers import Flatten
 from sklearn.preprocessing import MinMaxScaler
+from sklearn.model_selection import train_test_split
 from tensorflow.keras.models import Sequential, Model, load_model
 from tensorflow.keras.layers import Input, Embedding, LSTM, Dense, concatenate
 
@@ -25,7 +27,6 @@ def load_data():
     data = pd.read_sql_query(query, conn)
     conn.close()
 
-    # Чистење на податоците
     data['Цена на последна трансакција'] = data['Цена на последна трансакција'].str.replace('.', '', regex=False)
     data['Цена на последна трансакција'] = data['Цена на последна трансакција'].str.replace(',', '.', regex=False)
     data['Цена на последна трансакција'] = data['Цена на последна трансакција'].astype(float)
@@ -57,7 +58,7 @@ def build_model(num_issuers, look_back=60):
     input_issuer = Input(shape=(1,), name='issuer_input')
 
     embedding = Embedding(input_dim=num_issuers, output_dim=10)(input_issuer)
-    embedding_out = Flatten()(embedding)  # Отстранете ја дополнителната оска
+    embedding_out = Flatten()(embedding)
 
     concat = concatenate([lstm_out, embedding_out])
 
@@ -73,13 +74,32 @@ def train_model(data, look_back, epochs, batch_size, model_path):
     data['Цена на последна трансакција'] = scaler.fit_transform(data[['Цена на последна трансакција']])
 
     X_prices, X_issuers, Y_prices = create_dataset(data, look_back)
-    X_prices = np.reshape(X_prices, (X_prices.shape[0], X_prices.shape[1], 1))  # Reshape за LSTM
+    X_prices = np.reshape(X_prices, (X_prices.shape[0], X_prices.shape[1], 1))
     X_issuers = np.reshape(X_issuers, (X_issuers.shape[0], 1))
 
+    X_prices_train, X_prices_val, X_issuers_train, X_issuers_val, Y_prices_train, Y_prices_val = train_test_split(
+        X_prices, X_issuers, Y_prices, test_size=0.3, random_state=42
+    )
+
     model = build_model(num_issuers=data['issuer_id'].nunique(), look_back=look_back)
-    model.fit([X_prices, X_issuers], Y_prices, epochs=epochs, batch_size=batch_size, verbose=1)
+    history = model.fit(
+        [X_prices_train, X_issuers_train], Y_prices_train,
+        validation_data=([X_prices_val, X_issuers_val], Y_prices_val),
+        epochs=epochs,
+        batch_size=batch_size,
+        verbose=1
+    )
 
     model.save(model_path)
+
+    plt.plot(history.history['loss'], label='Training Loss')
+    plt.plot(history.history['val_loss'], label='Validation Loss')
+    plt.xlabel('Epochs')
+    plt.ylabel('Loss')
+    plt.title('Training and Validation Loss')
+    plt.legend()
+    plt.show()
+
     return model, scaler
 
 def train_model_for_1_day(data, look_back=60, epochs=20, batch_size=32):
@@ -144,7 +164,6 @@ def predict_for_future(issuer_name, look_back, days_ahead, model_path):
     predictions = scaler.inverse_transform(np.array(predictions).reshape(-1, 1))
     return predictions.flatten()
 
-
 def get_predictions(issuer_name):
     prediction_1_day = predict_for_future(
         issuer_name=issuer_name,
@@ -177,4 +196,3 @@ def get_predictions(issuer_name):
         "1_week": prediction_1_week[-1] if len(prediction_1_week) > 0 else "N/A",
         "1_month": prediction_1_month[-1] if len(prediction_1_month) > 0 else "N/A"
     }
-

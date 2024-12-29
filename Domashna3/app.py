@@ -415,6 +415,19 @@ def get_current_price_from_db(stock_name):
     return None
 
 
+cache = {}
+cache_expiry = {}
+def get_cached_predictions(stock_name, force_refresh=False):
+    if not force_refresh and stock_name in cache and datetime.now() < cache_expiry[stock_name]:
+        print(f"Cache hit for {stock_name}")
+        return cache[stock_name]
+    else:
+        print(f"Cache miss for {stock_name}. Refreshing cache...")
+        predictions = get_predictions(stock_name)
+        cache[stock_name] = predictions
+        cache_expiry[stock_name] = datetime.now() + timedelta(hours=24)  # Cache valid for 24 hours
+        return predictions
+
 @app.route('/predictive-analysis', methods=['GET', 'POST'])
 def predictive_analysis():
     predictions = None
@@ -438,7 +451,7 @@ def predictive_analysis():
                 if current_price is None:
                     error_message = "Could not retrieve the current price from the database."
                 else:
-                    predictions = get_predictions(stock_name)
+                    predictions = get_cached_predictions(stock_name)
                     if predictions:
                         future_price = predictions.get(period)
                         if future_price:
@@ -452,9 +465,9 @@ def predictive_analysis():
 
                         dates = ['1 Day', '1 Week', '1 Month']
                         values = [
-                            predictions["1_day"],
-                            predictions["1_week"],
-                            predictions["1_month"]
+                            predictions.get("1_day"),
+                            predictions.get("1_week"),
+                            predictions.get("1_month")
                         ]
 
                         plt.figure(figsize=(10, 5))
@@ -493,6 +506,7 @@ def predictive_analysis():
         future_date=future_date,
         graph_url=graph_url
     )
+
 
 @app.route('/visualizations')
 def visualizations():
