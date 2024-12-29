@@ -3,98 +3,102 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Top 10 Traded Stocks</title>
+    <title>Technical Visualizations</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
     <style>
-        #stockPieChart {
-            max-width: 500px;
-            max-height: 500px;
-            margin: 0 auto;
+        .visualization-container {
+            margin-top: 50px;
+        }
+        .chart-section {
+            margin-bottom: 50px;
+        }
+        .text-center {
+            margin-bottom: 50px; /* Додавање повеќе простор под копчето */
         }
     </style>
 </head>
-<body class="bg-light text-dark">
-    <div class="container my-5">
-        <h1 class="text-center mb-4">Top 10 Traded Stocks</h1>
-        <div class="row">
-            <div class="col-md-6 d-flex justify-content-center align-items-center">
-                <canvas id="stockPieChart"></canvas>
-            </div>
-            <div class="col-md-6">
-                <table class="table table-bordered table-striped text-center">
-                    <thead>
-                        <tr>
-                            <th>Issuer</th>
-                            <th>Average Price</th>
-                            <th>% Change</th>
-                            <th>Total Turnover</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for row in data %}
-                        <tr>
-                            <td>{{ row['issuer'] }}</td>
-                            <td>{{ row['avg_price'] }}</td>
-                            <td>{{ row['percent_change'] }}</td>
-                            <td>{{ row['total_turnover'] }}</td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
+<body>
+    <div class="container visualization-container">
+        <h1 class="text-center">Technical Visualizations for {{ stock_symbol }}</h1>
+
+        <!-- Time Period Comparisons -->
+        <div class="chart-section">
+            <h2>Time Period Comparisons</h2>
+            <div id="time-period-bar-chart"></div>
+        </div>
+
+        <!-- Indicator Trends -->
+        <div class="chart-section">
+            <h2>Indicator Trends</h2>
+            <div id="indicator-trend-chart"></div>
+        </div>
+
+        <!-- Back Button -->
+        <div class="text-center">
+            <a href="/technical-analysis?stock={{ stock_symbol }}" class="btn btn-secondary">Back to Analysis</a>
         </div>
     </div>
 
-    <div class="position-fixed bottom-0 end-0 m-4">
-        <a href="/" class="btn btn-secondary">Back To Home</a>
-    </div>
-
     <script>
-        const labels = [
-            {% for row in data %}
-            "{{ row['issuer'] }}",
-            {% endfor %}
+    document.addEventListener('DOMContentLoaded', function () {
+        // Data for Time Period Comparisons
+        const oscillatorData = {{ data['oscillators']|tojson }};
+        const categories = Object.keys(oscillatorData['1_day']);
+        const periods = ['1_day', '1_week', '1_month'];
+        const series = periods.map(period => ({
+            x: categories,
+            y: categories.map(cat => oscillatorData[period][cat]),
+            type: 'bar',
+            name: period.replace('_', ' ').toUpperCase(),
+            marker: {
+                color: period === '1_day' ? '#5D6D7E' :
+                       period === '1_week' ? '#2874A6' :
+                       '#B3B6B7' // Neutral business colors: gray, blue, silver
+            }
+        }));
+
+        Plotly.newPlot('time-period-bar-chart', series, {
+            title: 'Oscillator Comparisons Across Time Periods',
+            barmode: 'group',
+            xaxis: { title: 'Indicators' },
+            yaxis: { title: 'Values' }
+        });
+
+        // Data for Indicator Trends
+        const trendData = {{ data['trend_data']|tojson }};
+        const dates = trendData.dates;
+        const trendSeries = [
+            {
+                x: dates,
+                y: trendData['SMA_20'],
+                mode: 'lines',
+                name: 'SMA_20',
+                line: { color: '#2874A6', width: 2 } // Bright Blue
+            },
+            {
+                x: dates,
+                y: trendData['EMA_20'],
+                mode: 'lines',
+                name: 'EMA_20',
+                line: { color: '#AF7AC5', width: 2 } // Light Purple
+            },
+            {
+                x: dates,
+                y: trendData['WMA_20'],
+                mode: 'lines',
+                name: 'WMA_20',
+                line: { color: '#17A589', width: 2 } // Teal
+            }
         ];
-        const turnovers = [
-            {% for row in data %}
-            {{ row['total_turnover'] | replace('.', '') | replace(',', '.') }},
-            {% endfor %}
-        ];
 
-        console.log("Labels: ", labels);
-        console.log("Data: ", turnovers);
+        Plotly.newPlot('indicator-trend-chart', trendSeries, {
+            title: 'Indicator Trends Over Time',
+            xaxis: { title: 'Dates' },
+            yaxis: { title: 'Values' }
+        });
+    });
+</script>
 
-        const data = {
-            labels: labels,
-            datasets: [{
-                label: 'Top 10 Traded Stocks',
-                data: turnovers,
-                backgroundColor: [
-                    'rgba(255, 99, 132, 0.6)',
-                    'rgba(54, 162, 235, 0.6)',
-                    'rgba(255, 206, 86, 0.6)',
-                    'rgba(75, 192, 192, 0.6)',
-                    'rgba(153, 102, 255, 0.6)',
-                    'rgba(255, 159, 64, 0.6)',
-                    'rgba(199, 199, 199, 0.6)',
-                    'rgba(83, 102, 255, 0.6)',
-                    'rgba(159, 255, 64, 0.6)',
-                    'rgba(255, 64, 159, 0.6)'
-                ],
-                borderWidth: 1
-            }]
-        };
-
-        const config = {
-            type: 'pie',
-            data: data,
-        };
-
-        const stockPieChart = new Chart(
-            document.getElementById('stockPieChart'),
-            config
-        );
-    </script>
 </body>
 </html>
