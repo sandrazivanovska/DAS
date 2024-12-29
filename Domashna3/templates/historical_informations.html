@@ -21,7 +21,7 @@
         .view-visualizations-btn {
             text-align: center;
             margin-top: 20px;
-            margin-bottom: 30px; /* Added margin-bottom for spacing */
+            margin-bottom: 30px;
         }
         .analysis-section {
             text-align: center;
@@ -36,17 +36,24 @@
             max-width: 300px;
             margin: 10px auto;
         }
+        #downloadCsvBtn {
+            background-color: #6c757d;
+            color: white;
+        }
+        #downloadCsvBtn:hover {
+            background-color: #5a6268;
+        }
     </style>
 </head>
 <body class="bg-light text-dark">
     <div class="container my-5">
         <div class="d-flex justify-content-between align-items-center">
             <h1 class="text-center">Historical Informations</h1>
-            <!-- Back button -->
+
             <a href="/" class="btn btn-secondary">Back To Home</a>
         </div>
 
-        <!-- Search Form -->
+
         <form method="POST" class="row g-3 justify-content-center mb-5">
             <div class="col-md-4">
                 <input type="text" name="stock" class="form-control" placeholder="Enter stock symbol (e.g., ALK)" value="{{ stock_name or '' }}">
@@ -62,11 +69,11 @@
             </div>
         </form>
 
-        <!-- Data Table and Chart -->
+
         {% if data %}
         <div class="row-container">
             <div class="table-container">
-                <table class="table table-bordered table-striped text-center">
+                <table class="table table-bordered table-striped text-center" id="historicalTable">
                     <thead>
                         <tr>
                             <th>Date</th>
@@ -96,6 +103,7 @@
                         {% endfor %}
                     </tbody>
                 </table>
+                <button class="btn btn-dark mt-3" id="downloadCsvBtn">Download CSV</button>
             </div>
             <div class="chart-container">
                 <canvas id="historicalChart"></canvas>
@@ -115,7 +123,7 @@
         {% endif %}
     </div>
 
-    <!-- Modal -->
+
     <div class="modal fade" id="visualizationModal" tabindex="-1" aria-labelledby="visualizationModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-fullscreen">
             <div class="modal-content">
@@ -130,11 +138,11 @@
         </div>
     </div>
 
-   <script>
+    <script>
     {% if chart_data %}
     const chartData = {{ chart_data|tojson }};
 
-    // Initialize main chart
+
     const ctx = document.getElementById('historicalChart').getContext('2d');
     const historicalChart = new Chart(ctx, {
         type: 'line',
@@ -188,20 +196,20 @@
         },
     });
 
-    // Initialize full-screen chart
+
     let fullscreenChart;
     document.getElementById('visualizationModal').addEventListener('shown.bs.modal', function () {
         const fullscreenCtx = document.getElementById('fullscreenChart').getContext('2d');
 
-        // Destroy the chart if it exists (prevents duplicate rendering)
+
         if (fullscreenChart) {
             fullscreenChart.destroy();
         }
 
-        // Reinitialize the full-screen chart
+
         fullscreenChart = new Chart(fullscreenCtx, {
             type: 'line',
-            data: historicalChart.data, // Use data from the main chart
+            data: historicalChart.data,
             options: {
                 responsive: true,
                 plugins: {
@@ -226,10 +234,26 @@
             },
         });
     });
+
+
+    document.getElementById('downloadCsvBtn').addEventListener('click', function () {
+        const table = document.getElementById('historicalTable');
+        const rows = Array.from(table.querySelectorAll('tr'));
+        const csvContent = rows.map(row => {
+            const cells = Array.from(row.querySelectorAll('th, td'));
+            return cells.map(cell => `"${cell.innerText}"`).join(',');
+        }).join('\n');
+
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'historical_data.csv';
+        a.click();
+        URL.revokeObjectURL(url);
+    });
     {% endif %}
-</script>
-
-
+    </script>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
