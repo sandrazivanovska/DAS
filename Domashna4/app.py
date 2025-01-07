@@ -1,20 +1,23 @@
-import csv
 import locale
+import traceback
+from datetime import datetime, timedelta
 import pandas as pd
 import requests
 from bs4 import BeautifulSoup
-from flask import Flask, render_template, request, session, redirect, url_for
+from flask import session, redirect, url_for
 import sqlite3
-from Domashna3.analysis.historical_analysis import get_historical_data
 import sys
 import os
-from analysis.prediction import load_data, get_predictions
 import matplotlib.pyplot as plt
 import io
 import base64
 import matplotlib.ticker as mticker
-from analysis.technical_analysis import *
-
+from flask import Flask, request, render_template
+from Domashna4.client_services.prediction_client import PredictionClient
+from Domashna4.client_services.scraping_client import ScrapingClient
+from Domashna4.client_services.technical_analysis_client import TechnicalAnalysisClient
+from Domashna4.microservices.technical_analysis_service.technical_analysis_app import fetch_data, calculate_indicators
+from Domashna4.client_services.fundamental_analysis_client import  FundamentalAnalysisClient
 
 locale.setlocale(locale.LC_ALL, 'mk_MK.UTF-8')
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -22,9 +25,10 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 app = Flask(__name__)
 app.secret_key = "secret_key"
 
+
 def get_db_connection():
     base_dir = os.path.dirname(os.path.abspath(__file__))
-    db_path = os.path.join(base_dir, '..', 'Domashna1', 'stock_data.db')
+    db_path = os.path.join(base_dir, 'stock_data.db')
     try:
         conn = sqlite3.connect(db_path)
         conn.row_factory = sqlite3.Row
@@ -42,11 +46,15 @@ def home():
     return render_template('home.html', stocks=stocks)
 
 
+client = TechnicalAnalysisClient(base_url="http://localhost:5001")
+
 @app.route('/technical-analysis', methods=['GET', 'POST'])
 def technical_analysis():
     data = None
     stock_name = None
     selected_period = None
+    signal_counts = None
+    final_recommendation = None
 
     if request.method == 'POST':
         stock_name = request.form.get('stock')
@@ -57,79 +65,85 @@ def technical_analysis():
         selected_period = "1 ден"
 
     if stock_name:
-        conn = get_db_connection()
-
         periods = {
             '1 ден': 1,
             '1 недела': 7,
             '1 месец': 30
         }
 
-        analysis_results = analyze_stock(conn, stock_name, periods)
-        conn.close()
+        analysis_results = client.analyze(stock_name, periods)
 
-        if analysis_results:
-            data = analysis_results.get(selected_period)
+        if analysis_results and 'results' in analysis_results:
+            data = analysis_results['results'].get(selected_period)
+            signal_counts = analysis_results.get('signal_counts')
+            final_recommendation = analysis_results.get('final_recommendation')
 
     return render_template(
         'technical_analysis.html',
         stock_name=stock_name,
         period=selected_period,
-        data=data
+        data=data,
+        signal_counts=signal_counts,
+        final_recommendation=final_recommendation
     )
 
 
+def prepare_visualization_data(stock_symbol, client):
 
-def prepare_visualization_data(connection, stock_symbol):
     time_periods = {
         "1_day": 1,
         "1_week": 7,
         "1_month": 30
     }
 
-    analysis_results = analyze_stock(connection, stock_symbol, time_periods)
+    analysis_results = client.analyze(stock_symbol, time_periods)
 
     if "error" in analysis_results:
         return {"error": analysis_results["error"]}
 
+    results = analysis_results.get("results", {})
     oscillator_values = {
         period: {
-            "RSI": analysis_results[period]["oscillator_summary"]["RSI"]["value"],
-            "MACD": analysis_results[period]["oscillator_summary"]["MACD"]["value"],
-            "STOCH_K": analysis_results[period]["oscillator_summary"]["STOCH_K"]["value"],
+            "RSI": results.get(period, {}).get("oscillators", {}).get("RSI", {}).get("value", 0),
+            "MACD": results.get(period, {}).get("oscillators", {}).get("MACD", {}).get("value", 0),
+            "STOCH_K": results.get(period, {}).get("oscillators", {}).get("STOCH_K", {}).get("value", 0),
         }
         for period in time_periods.keys()
     }
 
-    end_date = datetime.now()
-    start_date = end_date - timedelta(days=730)
-    data = fetch_data(connection, stock_symbol, start_date, end_date)
-    data = calculate_indicators(data)
+    trend_data = analysis_results.get("trend_data", {})
+    connection = get_db_connection()
+    if not trend_data:
+        df = fetch_data(stock_symbol, datetime.now() - timedelta(days=730), datetime.now())
+        df = calculate_indicators(df)
+        trend_data = {
+            "dates": df.index.strftime('%Y-%m-%d').tolist(),
+            "SMA_20": df["SMA_20"].fillna(0).tolist(),
+            "EMA_20": df["EMA_20"].fillna(0).tolist(),
+            "WMA_50": df["WMA_50"].fillna(0).tolist()
+        }
 
-    trend_data = {
-        "dates": data.index.strftime('%Y-%m-%d').tolist(),
-        "SMA_20": data["SMA_20"].fillna(0).tolist(),
-        "EMA_20": data["EMA_20"].fillna(0).tolist(),
-        "WMA_20": data["WMA_50"].fillna(0).tolist(),
-    }
+    signal_counts = analysis_results.get("signal_counts", {})
+    final_recommendation = analysis_results.get("final_recommendation", "HOLD")
 
     return {
         "oscillators": oscillator_values,
         "trend_data": trend_data,
+        "signal_counts": signal_counts,
+        "final_recommendation": final_recommendation,
     }
-
-
 
 @app.route('/technical-visualizations', methods=['GET'])
 def technical_visualizations():
+
     stock_symbol = request.args.get('stock', None)
+
     if not stock_symbol:
         return "Stock symbol is required.", 400
 
-    conn = get_db_connection()
+    client = TechnicalAnalysisClient(base_url="http://localhost:5001")
 
-    visualization_data = prepare_visualization_data(conn, stock_symbol)
-    conn.close()
+    visualization_data = prepare_visualization_data(stock_symbol, client)
 
     if "error" in visualization_data:
         return render_template('error.html', error_message=visualization_data["error"])
@@ -141,13 +155,13 @@ def technical_visualizations():
     )
 
 
-CSV_FILE_PATH = "sentiment_analysis_results.csv"
+CSV_FILE_PATH = "microservices/fundamental_analysis_service/sentiment_analysis_results.csv"
 
 def read_documents_from_csv(file_path, issuer_code):
 
     try:
         data = pd.read_csv(file_path, encoding='latin1')
-        data['Date'] = pd.to_datetime(data['Date'], errors='coerce')  # Convert dates
+        data['Date'] = pd.to_datetime(data['Date'], errors='coerce')
         filtered_data = data[data['Company Code'] == issuer_code]
         return filtered_data
     except Exception as e:
@@ -155,12 +169,11 @@ def read_documents_from_csv(file_path, issuer_code):
         return pd.DataFrame()
 
 def generate_bar_chart(positive_count, negative_count, neutral_count):
-    # Rearrange the order so Neutral is in the middle
     labels = ['Positive', 'Neutral', 'Negative']
     values = [positive_count, neutral_count, negative_count]
 
     plt.figure(figsize=(8, 6))
-    plt.bar(labels, values, color=['#5D6D7E', '#A9A9A9', '#2874A6'])  # Neutral is gray
+    plt.bar(labels, values, color=['#5D6D7E', '#A9A9A9', '#2874A6'])
     plt.title("Sentiment Analysis Results")
     plt.ylabel("Number of Articles")
     plt.xlabel("Sentiment")
@@ -199,6 +212,7 @@ def generate_line_chart(data, issuer_code):
 
 @app.route('/fundamental-analysis', methods=['GET', 'POST'])
 def fundamental_analysis():
+    client = FundamentalAnalysisClient()  # Initialize the client
     result = None
     error_message = None
     chart_url = None
@@ -208,35 +222,37 @@ def fundamental_analysis():
     if issuer_code:
         session['selected_issuer_code'] = issuer_code
 
-        documents = read_documents_from_csv(CSV_FILE_PATH, issuer_code)
+        try:
+            response = client.fetch_fundamental_analysis(issuer_code)
+            if response["status"] == "success":
+                documents = response["data"]
+                positive_count = sum(1 for doc in documents if doc["Sentiment"] == "Positive")
+                negative_count = sum(1 for doc in documents if doc["Sentiment"] == "Negative")
+                neutral_count = sum(1 for doc in documents if doc["Sentiment"] == "Neutral")
 
-        if documents.empty:
-            error_message = f"No documents found for issuer {issuer_code}."
-        else:
-            positive_count = (documents['Sentiment'] == "Positive").sum()
-            negative_count = (documents['Sentiment'] == "Negative").sum()
-            neutral_count = (documents['Sentiment'] == "Neutral").sum()
+                if neutral_count >= positive_count and neutral_count >= negative_count:
+                    recommendation = "HOLD"
+                elif positive_count >= neutral_count and positive_count >= negative_count:
+                    recommendation = "BUY"
+                elif negative_count >= neutral_count and negative_count >= positive_count:
+                    recommendation = "SELL"
+                else:
+                    recommendation = "HOLD"
 
-            # Determine Recommendation Based on Counts
-            if neutral_count >= positive_count and neutral_count >= negative_count:
-                recommendation = "HOLD"
-            elif positive_count >= neutral_count and positive_count >= negative_count:
-                recommendation = "BUY"
-            elif negative_count >= neutral_count and negative_count >= positive_count:
-                recommendation = "SELL"
+                chart_url = generate_bar_chart(positive_count, negative_count, neutral_count)
+
+                result = {
+                    "issuer_code": issuer_code,
+                    "positive_count": positive_count,
+                    "negative_count": negative_count,
+                    "neutral_count": neutral_count,
+                    "recommendation": recommendation,
+                }
             else:
-                recommendation = "HOLD"  # Default recommendation if counts are equal
-
-            chart_url = generate_bar_chart(positive_count, negative_count, neutral_count)
-
-            result = {
-                "issuer_code": issuer_code,
-                "positive_count": positive_count,
-                "negative_count": negative_count,
-                "neutral_count": neutral_count,
-                "recommendation": recommendation,
-            }
-
+                error_message = response.get("message", "Error retrieving data from the microservice.")
+        except Exception as e:
+            error_message = f"An error occurred while contacting the microservice: {e}"
+            print(f"Error: {traceback.format_exc()}")
     elif request.method == 'POST' and not issuer_code:
         error_message = "Please provide a valid issuer code."
 
@@ -280,19 +296,33 @@ def generate_filtered_line_chart(data, issuer_code, start_date, end_date):
 
 @app.route('/visualizations_fundamental', methods=['GET', 'POST'])
 def visualizations_fundamental():
+    client = FundamentalAnalysisClient()  # Initialize the client
     selected_issuer_code = session.get('selected_issuer_code')
-    data = read_documents_from_csv(CSV_FILE_PATH,  selected_issuer_code )
     chart_url = None
     error_message = None
 
     if not selected_issuer_code:
         return redirect(url_for('fundamental_analysis'))
 
-    if request.method == 'POST':
+    result = client.fetch_fundamental_analysis(selected_issuer_code)
+
+    if result["status"] == "success":
+        data = result["data"]
+        df = pd.DataFrame(data)
+    else:
+        error_message = result["message"]
+        df = pd.DataFrame()
+
+    if request.method == 'POST' and not df.empty:
         try:
             start_date = pd.Timestamp(request.form.get('start_date'))
             end_date = pd.Timestamp(request.form.get('end_date'))
-            chart_url = generate_filtered_line_chart(data, selected_issuer_code, start_date, end_date)
+
+            df['Date'] = pd.to_datetime(df['Date'], errors='coerce')
+
+            filtered_df = df[(df['Date'] >= start_date) & (df['Date'] <= end_date)]
+
+            chart_url = generate_filtered_line_chart(filtered_df, selected_issuer_code, start_date, end_date)
         except Exception as e:
             error_message = f"Error generating chart: {e}"
 
@@ -302,7 +332,6 @@ def visualizations_fundamental():
         issuer_code=selected_issuer_code,
         error_message=error_message
     )
-
 
 
 @app.route('/historical-informations', methods=['GET', 'POST'])
@@ -318,27 +347,40 @@ def historical_informations():
         start_date = request.form.get('start_date')
         end_date = request.form.get('end_date')
 
-        conn = get_db_connection()
-        data = get_historical_data(conn, stock_name, start_date, end_date)
-        conn.close()
+        if stock_name and start_date and end_date:
+            try:
+                conn = get_db_connection()
 
-        # Prepare data for the chart
-        if data:
-            chart_data = {
-                "dates": [row["Датум"] for row in data],
-                "last_prices": [
-                    float(row["Цена на последна трансакција"].replace('.', '').replace(',', '.'))
-                    for row in data
-                ],
-                "max_prices": [
-                    float(row["Мак."].replace('.', '').replace(',', '.'))
-                    for row in data
-                ],
-                "min_prices": [
-                    float(row["Мин."].replace('.', '').replace(',', '.'))
-                    for row in data
-                ],
-            }
+                query = '''
+                    SELECT Датум, "Цена на последна трансакција", "Мак.", "Мин.", "Просечна цена", "%пром.", "Количина", "Промет во БЕСТ во денари", "Вкупен промет во денари"
+                    FROM stock_data
+                    WHERE Издавач = ? AND Датум BETWEEN ? AND ?
+                    ORDER BY Датум
+                '''
+                data = conn.execute(query, (stock_name, start_date, end_date)).fetchall()
+
+                if data:
+                    chart_data = {
+                        "dates": [row["Датум"] for row in data],
+                        "last_prices": [
+                            float(row["Цена на последна трансакција"].replace('.', '').replace(',', '.'))
+                            for row in data
+                        ],
+                        "max_prices": [
+                            float(row["Мак."].replace('.', '').replace(',', '.'))
+                            for row in data
+                        ],
+                        "min_prices": [
+                            float(row["Мин."].replace('.', '').replace(',', '.'))
+                            for row in data
+                        ],
+                    }
+
+                conn.close()
+            except Exception as e:
+                print(f"Error fetching data: {e}")
+                if conn:
+                    conn.close()
 
     return render_template(
         'historical_informations.html',
@@ -348,6 +390,7 @@ def historical_informations():
         start_date=start_date,
         end_date=end_date
     )
+
 
 
 def scrape_najtrguvani():
@@ -376,8 +419,6 @@ def scrape_najtrguvani():
                 "total_turnover": total_turnover,
             })
     return data
-
-
 
 
 @app.route('/top-traded-stocks')
@@ -415,67 +456,107 @@ def get_current_price_from_db(stock_name):
     return None
 
 
+# Кеш структура
 cache = {}
 cache_expiry = {}
-def get_cached_predictions(stock_name, force_refresh=False):
-    if not force_refresh and stock_name in cache and datetime.now() < cache_expiry[stock_name]:
-        print(f"Cache hit for {stock_name}")
-        return cache[stock_name]
+prediction_client = PredictionClient(base_url="http://localhost:5008")
+
+def get_cached_predictions(stock_name, period, force_refresh=False):
+    cache_key = f"{stock_name}_{period}"
+    if not force_refresh and cache_key in cache and datetime.now() < cache_expiry.get(cache_key, datetime.min):
+        print(f"Cache hit for {cache_key}")
+        return cache[cache_key]
     else:
-        print(f"Cache miss for {stock_name}. Refreshing cache...")
-        predictions = get_predictions(stock_name)
-        cache[stock_name] = predictions
-        cache_expiry[stock_name] = datetime.now() + timedelta(hours=24)  # Cache valid for 24 hours
-        return predictions
+        print(f"Cache miss for {cache_key}. Fetching from microservice...")
+        try:
+            response = prediction_client.get_prediction(stock_name, period)
+            if "error" not in response:
+                predictions = response.get("predictions")
+                cache[cache_key] = predictions
+                cache_expiry[cache_key] = datetime.now() + timedelta(hours=24)
+                return predictions
+            else:
+                raise Exception(response["error"])
+        except Exception as e:
+            print(f"Error fetching predictions: {e}")
+            raise
 
 @app.route('/predictive-analysis', methods=['GET', 'POST'])
 def predictive_analysis():
     predictions = None
-    stock_name = request.args.get('stock')
+    stock_name = request.args.get('stock') or request.form.get('stock')
     error_message = None
     recommendations = {}
     graph_url = None
-    period = None
+    period = request.args.get('period') or request.form.get('period')
     current_date = datetime.now().strftime('%Y-%m-%d')
     future_date = None
+    future_price = None
 
-    if request.method == 'POST':
-        stock_name = request.form.get('stock')
-        period = request.form.get('period')
+    period_map = {
+        "1_day": 1,
+        "1_week": 7,
+        "1_month": 30
+    }
 
-        if not stock_name:
-            error_message = "Please enter a valid issuer."
-        else:
-            try:
+    if stock_name and period:
+        try:
+            period_value = period_map.get(period)
+            if not period_value:
+                raise ValueError("Invalid period value. Please select a valid period.")
+
+            predictions = get_cached_predictions(stock_name, period_value)
+
+            if predictions:
                 current_price = get_current_price_from_db(stock_name)
-                if current_price is None:
-                    error_message = "Could not retrieve the current price from the database."
-                else:
-                    predictions = get_cached_predictions(stock_name)
-                    if predictions:
-                        future_price = predictions.get(period)
-                        if future_price:
-                            recommendations[period] = "BUY" if future_price > current_price else "SELL"
-                            if period == "1_day":
-                                future_date = (datetime.now() + timedelta(days=1)).strftime('%Y-%m-%d')
-                            elif period == "1_week":
-                                future_date = (datetime.now() + timedelta(weeks=1)).strftime('%Y-%m-%d')
-                            elif period == "1_month":
-                                future_date = (datetime.now() + timedelta(days=30)).strftime('%Y-%m-%d')
+
+                if current_price is not None:
+                    if period == "1_day":
+                        future_price = round(predictions[0], 2) if predictions else None
+                    elif period == "1_week":
+                        future_price = round(predictions[-1],
+                                             2) if predictions else None
+                    elif period == "1_month":
+                        future_price = round(predictions[-1],
+                                             2) if predictions else None
+                    else:
+                        future_price = None
+
+                    recommendations[period] = "BUY" if future_price > current_price else "SELL"
+
+                    if period == "1_day":
+                        future_date = (datetime.now() + timedelta(days=1)).strftime('%Y-%m-%d')
+                    elif period == "1_week":
+                        future_date = (datetime.now() + timedelta(weeks=1)).strftime('%Y-%m-%d')
+                    elif period == "1_month":
+                        future_date = (datetime.now() + timedelta(days=30)).strftime('%Y-%m-%d')
+
+
+
+                    full_predictions = get_cached_predictions(stock_name, 30)
+
+                    if full_predictions:
+                        one_day_prediction = full_predictions[0] if len(full_predictions) > 0 else None
+                        one_week_prediction = full_predictions[6] if len(full_predictions) > 6 else None
+                        one_month_prediction = full_predictions[29] if len(full_predictions) > 29 else None
 
                         dates = ['1 Day', '1 Week', '1 Month']
                         values = [
-                            predictions.get("1_day"),
-                            predictions.get("1_week"),
-                            predictions.get("1_month")
+                            round(one_day_prediction, 2) if one_day_prediction else None,
+                            round(one_week_prediction, 2) if one_week_prediction else None,
+                            round(one_month_prediction, 2) if one_month_prediction else None
                         ]
 
+                        valid_dates = [date for date, value in zip(dates, values) if value is not None]
+                        valid_values = [value for value in values if value is not None]
+
                         plt.figure(figsize=(10, 5))
-                        plt.plot(dates, values, marker='o', label='Predicted Prices')
+                        plt.plot(valid_dates, valid_values, marker='o', color='blue', label='Predicted Prices',
+                                 zorder=5)
                         plt.fill_between(
-                            dates,
-                            [val * 0.95 for val in values],
-                            [val * 1.05 for val in values],
+                            valid_dates,
+                            [val * 0.95 for val in valid_values],
+                            [val * 1.05 for val in valid_values],
                             color='blue',
                             alpha=0.2,
                             label='Confidence Interval (95%)'
@@ -483,6 +564,7 @@ def predictive_analysis():
                         plt.title(f'Predictions for {stock_name}')
                         plt.xlabel('Time Period')
                         plt.ylabel('Price (USD)')
+                        plt.xticks(rotation=45)
                         plt.legend()
                         plt.grid()
 
@@ -492,8 +574,9 @@ def predictive_analysis():
                         graph_url = base64.b64encode(buf.getvalue()).decode('utf8')
                         buf.close()
                         plt.close()
-            except Exception as e:
-                error_message = f"Error during prediction: {e}"
+        except Exception as e:
+            error_message = f"Error during prediction: {e}"
+
 
     return render_template(
         'predictive_analysis.html',
@@ -501,17 +584,23 @@ def predictive_analysis():
         predictions=predictions,
         error_message=error_message,
         recommendations=recommendations,
-        period=period,
+        period=str(period),
         current_date=current_date,
         future_date=future_date,
-        graph_url=graph_url
+        graph_url=graph_url,
+        future_price=future_price
     )
 
 
-@app.route('/visualizations')
-def visualizations():
-    return render_template('visualizations.html')
-
+scraping_client = ScrapingClient()
 
 if __name__ == '__main__':
+    if os.getenv('WERKZEUG_RUN_MAIN') == 'true':
+        print("Starting scraping process during app creation...")
+        result = scraping_client.scrape()
+        if result.get("status") == "success":
+            print("Scraping completed successfully!")
+        else:
+            print(f"Scraping failed: {result.get('message')}")
+
     app.run(debug=True)
