@@ -1,0 +1,5 @@
+Flask
+aiohttp
+asyncio
+beautifulsoup4
+sqlite3
