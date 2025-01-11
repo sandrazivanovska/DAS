@@ -1,4 +1,4 @@
-from Domashna4.stock_insight_app.model.db_singleton import DatabaseConnection
+from Domashna4.stock_insight_app.model.db_singelton import DatabaseConnection
 
 def fetch_historical_data(stock_name, start_date, end_date):
     """

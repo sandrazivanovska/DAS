@@ -1,5 +1,5 @@
 from flask import Blueprint, render_template
-from Domashna4.stock_insight_app.model.db_singleton import DatabaseConnection
+from Domashna4.stock_insight_app.model.db_singelton import DatabaseConnection
 
 home_bp = Blueprint('home', __name__)
 

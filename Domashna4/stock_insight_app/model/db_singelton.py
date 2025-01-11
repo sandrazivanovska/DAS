@@ -17,7 +17,7 @@ class DatabaseConnection:
     def connect(self):
         if not self._connection:
             base_dir = os.path.dirname(os.path.abspath(__file__))
-            db_path = os.path.join(base_dir, '../stock_data.db')
+            db_path = os.path.join(base_dir, '../../stock_data.db')
             try:
                 self._connection = sqlite3.connect(db_path, check_same_thread=False)
                 self._connection.row_factory = sqlite3.Row
