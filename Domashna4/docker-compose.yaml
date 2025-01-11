@@ -1,0 +1,24 @@
+version: '3'
+services:
+  stock_insight_app:
+    build:
+      context: ./stock_insight_app
+      dockerfile: Dockerfile
+    ports:
+      - "5000:5000"
+    depends_on:
+      - fundamental_analysis_service
+      - technical_analysis_service
+
+  fundamental_analysis_service:
+    build:
+      context: ./microservices/fundamental_analysis_service
+    ports:
+      - "5003:5003"
+
+  technical_analysis_service:
+    build:
+      context: ./microservices/technical_analysis_service
+    ports:
+      - "5001:5001"
+
