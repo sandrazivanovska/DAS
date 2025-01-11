@@ -1,11 +1,11 @@
-FROM python:3.9-slim
+FROM python:3.9
 
 WORKDIR /app
 
-COPY . .
+COPY . /app
 
 RUN pip install --no-cache-dir -r requirements.txt
 
-EXPOSE 5003
+EXPOSE 5008
 
 CMD ["python", "prediction_app.py"]
