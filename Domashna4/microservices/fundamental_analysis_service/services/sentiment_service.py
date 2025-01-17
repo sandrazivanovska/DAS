@@ -1,5 +1,5 @@
-from Domashna4.microservices.fundamental_analysis_service.utils.csv_utils import read_csv_file
-from Domashna4.microservices.fundamental_analysis_service.utils.sentiment_utils import classify_sentiment
+from utils.csv_utils import read_csv_file
+from utils.sentiment_utils import classify_sentiment
 
 
 def analyze_sentiment(document):

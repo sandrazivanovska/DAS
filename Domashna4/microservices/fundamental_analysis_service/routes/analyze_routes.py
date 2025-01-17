@@ -4,7 +4,7 @@ from flask import Blueprint, request, jsonify
 
 import pandas as pd
 
-from Domashna4.microservices.fundamental_analysis_service.services.sentiment_service import get_documents_by_issuer
+from services.sentiment_service import get_documents_by_issuer
 
 analyze_bp = Blueprint("analyze", __name__)
 

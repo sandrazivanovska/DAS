@@ -1,12 +1,12 @@
+# Изберете подходна база на слика
 FROM python:3.9-slim
 
 WORKDIR /app
 
-COPY requirements.txt requirements.txt
-RUN pip install --no-cache-dir -r requirements.txt
+COPY . /app
 
-COPY . .
+RUN pip install --no-cache-dir -r requirements.txt
 
 EXPOSE 5003
 
-CMD ["python", "fundamental_analysis_app.py"]
+CMD ["python", "fundamental_analysis.py"]

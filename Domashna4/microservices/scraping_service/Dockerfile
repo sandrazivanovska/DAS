@@ -6,4 +6,6 @@ COPY . /app
 
 RUN pip install -r requirements.txt
 
-CMD ["python", "app.py"]
+EXPOSE 5010
+
+CMD ["python", "scraping_app.py"]

@@ -1,5 +1,5 @@
-flask
-tensorflow
-pandas
+Flask
 numpy
+pandas
+tensorflow
 scikit-learn

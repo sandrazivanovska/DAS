@@ -9,6 +9,7 @@ services:
     depends_on:
       - fundamental_analysis_service
       - technical_analysis_service
+      - predictive_analysis_service
 
   fundamental_analysis_service:
     build:
@@ -21,4 +22,16 @@ services:
       context: ./microservices/technical_analysis_service
     ports:
       - "5001:5001"
+
+  predictive_analysis_service:
+    build:
+      context: ./microservices/predictive_analysis_service
+    ports:
+      - "5008:5008"
+
+  scraping_service:
+    build:
+      context: ./microservices/scraping_service
+    ports:
+      - "5010:5010"
 

@@ -1,5 +1,5 @@
 from flask import Blueprint, request, jsonify
-from Domashna4.microservices.prediction_service.app.services.prediction_service import predict_with_strategy
+from prediction_service import predict_with_strategy
 
 prediction_bp = Blueprint('prediction', __name__)
 

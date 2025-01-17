@@ -1,5 +1,5 @@
 import os
-from Domashna4.microservices.prediction_service.app.utils.model_utils import load_data, train_model, get_model_path
+from utils.model_utils import load_data, train_model, get_model_path
 from tensorflow.keras.models import load_model
 from sklearn.preprocessing import MinMaxScaler
 import numpy as np

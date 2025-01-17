@@ -1,5 +1,4 @@
-flask
-requests
-pdfplumber
+Flask
+pandas
 transformers
-gunicorn
+torch
